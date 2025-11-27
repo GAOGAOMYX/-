@@ -262,6 +262,8 @@
             display: flex;
             gap: 20px;
             align-items: center;
+            flex-wrap: wrap; /* <--- 添加这一行，红心太多时会自动换行，不会超出屏幕 */
+            justify-content: center; /* 让内容居中 */
         }
 
         #lives-container {
@@ -341,7 +343,7 @@
     
     <div id="status-bar">
         <div>已配对: <span id="score">0</span> / 6</div>
-        <div id="lives-container">生命: <span id="lives">❤️❤️❤️❤️❤️</span></div>
+        <div id="lives-container">生命: <span id="lives">❤️❤️❤️❤️❤️❤️❤️❤️</span></div>
     </div>
 
     <div class="game-grid" id="gameGrid">
@@ -423,8 +425,8 @@
         let score = 0;
         
         // 新增：生命值变量
-        let lives = 5;
-        const maxLives = 5;
+        let lives = 8;
+        const maxLives = 8;
 
         function initGame() {
             cards = [...cardsData].sort(() => 0.5 - Math.random());
