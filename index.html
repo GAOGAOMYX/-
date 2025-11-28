@@ -23,9 +23,8 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            /* 关键修复：使用 dvh 适应移动端地址栏伸缩，防止布局跳动 */
-            min-height: 100dvh; 
-            padding-bottom: 160px; /* 底部留白 */
+            min-height: 100dvh; /* 适应移动端视口 */
+            padding-bottom: 180px; /* 增加底部空间，确保完全不遮挡 */
             overflow-x: hidden;
             -webkit-tap-highlight-color: transparent;
         }
@@ -57,8 +56,6 @@
             max-width: 600px; width: 95%;
             perspective: 1000px;
             margin-bottom: 20px;
-            transition: opacity 0.5s;
-            /* 确保网格层级正常，不遮挡其他元素 */
             position: relative; 
             z-index: 1;
         }
@@ -71,16 +68,11 @@
             background-color: transparent; height: 160px;
             cursor: pointer; position: relative;
             transform-style: preserve-3d; transition: transform 0.6s;
-            z-index: 2; 
-            
-            /* 【核心修复1】分离触摸与点击：
-               告诉浏览器这里主要是点击操作，不要等待双击缩放判断 
-               这能显著解决滑动停止后点击不灵敏的问题 */
-            touch-action: manipulation;
-            
-            /* 【核心修复2】性能优化：
-               将变换提升到合成层，防止滑动时点击区域跟不上视觉区域 */
-            will-change: transform;
+            z-index: 2;
+            /* 关键：只允许垂直滚动，禁止水平手势，减少干扰 */
+            touch-action: pan-y; 
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         .card.flip { transform: rotateY(180deg); }
@@ -91,8 +83,7 @@
             justify-content: center; align-items: center; text-align: center;
             padding: 8px; box-sizing: border-box; backface-visibility: hidden;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-size: 0.9rem; line-height: 1.3;
-            /* 防止内部元素阻挡点击事件 */
-            pointer-events: none; 
+            pointer-events: none; /* 穿透点击，让父级card处理事件 */
         }
 
         /* 正面样式 */
@@ -120,17 +111,16 @@
             color: var(--blue-color); 
         }
 
-        /* 翻开/选中状态 */
+        /* 选中状态 */
         .card.flip .back {
             box-shadow: 0 8px 20px rgba(0,0,0,0.15); 
         }
 
-        /* 匹配成功样式 */
+        /* 匹配成功 */
         .card.matched .back {
             border-color: var(--green-color); 
             box-shadow: 0 0 10px rgba(46, 125, 50, 0.3);
-            /* 匹配成功后恢复点击事件，以便查看详情 */
-            pointer-events: auto; 
+            pointer-events: auto; /* 允许点击回顾 */
         }
         .card.matched .back::after {
             content: "ℹ️ 点击回顾"; position: absolute; bottom: 8px; left: 50%;
@@ -147,12 +137,11 @@
 
         /* --- 5. 确认按钮区域 --- */
         #action-bar {
-            position: fixed; bottom: 30px; left: 0; width: 100%;
-            display: flex; justify-content: center; 
+            position: fixed; bottom: 40px; left: 0; width: 100%;
+            display: flex; justify-content: center; align-items: center;
             pointer-events: none; 
-            z-index: 999; /* 确保层级最高 */
-            /* 启用硬件加速，防止滚动时抖动 */
-            transform: translateZ(0);
+            z-index: 999;
+            transform: translateZ(0); /* 硬件加速 */
         }
 
         #confirm-btn {
@@ -160,18 +149,14 @@
             background-color: var(--btn-disabled);
             color: white; border: none;
             padding: 15px 0; 
-            min-width: 220px; /* 锁定宽度，防止文字改变时跳动 */
-            width: 60%; max-width: 300px;
+            min-width: 240px; /* 加宽一点，更稳定 */
             border-radius: 50px;
             font-size: 1.1rem; font-weight: bold;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            transition: background-color 0.3s, transform 0.1s; /* 移除 all transition，只做必要的动画 */
+            transition: background-color 0.3s, transform 0.1s;
             cursor: not-allowed;
             white-space: nowrap; 
-            
-            /* 优化触摸反馈 */
-            -webkit-user-select: none;
-            user-select: none;
+            text-align: center;
         }
 
         #confirm-btn.active {
@@ -257,7 +242,7 @@
     
     <div id="status-bar">
         <div>已配对: <span id="score">0</span> / 6</div>
-        <div id="lives-container">生命: <span id="lives">❤️❤️❤️</span></div>
+        <div id="lives-container">生命: <span id="lives">❤️❤️❤️❤️❤️</span></div>
     </div>
 
     <div class="game-grid" id="gameGrid">
@@ -335,8 +320,8 @@
         
         let cards = [];
         let score = 0;
-        let lives = 3;
-        const maxLives = 3;
+        let lives = 5;
+        const maxLives = 5;
         let selectedCards = []; 
         let lockBoard = false;
 
@@ -386,10 +371,75 @@
 
                 cardEl.innerHTML = frontContent + backContent;
                 
-                // --- 【核心修复3】使用 click 事件，但因为 CSS 设置了 touch-action: manipulation，所以它会变快且准确 ---
-                cardEl.addEventListener('click', handleCardClick);
+                // --- 关键修复：添加手动触摸逻辑 ---
+                setupTouchLogic(cardEl);
                 grid.appendChild(cardEl);
             });
+        }
+
+        // --- 手动触摸逻辑，替代 unreliable 的 click ---
+        function setupTouchLogic(element) {
+            let startX, startY;
+            let startTime;
+
+            element.addEventListener('touchstart', function(e) {
+                // 记录按下时的位置和时间
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+                startTime = new Date().getTime();
+            }, { passive: false });
+
+            element.addEventListener('touchend', function(e) {
+                // 记录抬起时的位置
+                const endX = e.changedTouches[0].clientX;
+                const endY = e.changedTouches[0].clientY;
+                const endTime = new Date().getTime();
+
+                // 计算位移和按住时间
+                const diffX = Math.abs(endX - startX);
+                const diffY = Math.abs(endY - startY);
+                const diffTime = endTime - startTime;
+
+                // 判断：如果位移很小（<10px）且时间较短（<500ms），则判定为点击
+                if (diffX < 10 && diffY < 10 && diffTime < 500) {
+                    e.preventDefault(); // 阻止浏览器后续的 click 事件，防止双重触发
+                    doCardLogic(element); // 执行卡牌逻辑
+                }
+            }, { passive: false });
+
+            // 为了兼容鼠标点击（PC端），保留 click，但触摸端已被 preventDefault 拦截
+            element.addEventListener('click', function(e) {
+                doCardLogic(element);
+            });
+        }
+
+        // --- 抽离出的卡牌逻辑 ---
+        function doCardLogic(card) {
+            if (lockBoard) return;
+
+            if (card.classList.contains('matched')) {
+                showModal(card.dataset.modalTitle, card.dataset.modalText, card.dataset.modalImage);
+                return;
+            }
+
+            // 点击已翻开 -> 盖回
+            if (card.classList.contains('flip')) {
+                card.classList.remove('flip');
+                selectedCards = selectedCards.filter(c => c !== card);
+                updateConfirmButton();
+                return;
+            }
+
+            // 点击未翻开 -> 翻开
+            if (selectedCards.length < 2) {
+                card.classList.add('flip');
+                selectedCards.push(card);
+                updateConfirmButton();
+            } else {
+                // 震动反馈
+                card.style.transform = "translateX(5px)";
+                setTimeout(() => card.style.transform = "translateX(0)", 100);
+            }
         }
 
         function updateLivesDisplay() {
@@ -398,38 +448,6 @@
                 hearts += (i < lives) ? '❤️' : '💔';
             }
             livesEl.textContent = hearts;
-        }
-
-        function handleCardClick(e) {
-            // 如果面板锁定，直接返回，解决“狂点”导致的逻辑错误
-            if (lockBoard) return;
-            
-            // 确保点击的是卡牌容器
-            const card = e.currentTarget;
-
-            if (card.classList.contains('matched')) {
-                showModal(card.dataset.modalTitle, card.dataset.modalText, card.dataset.modalImage);
-                return;
-            }
-
-            // 情况1：点击已翻开的 -> 盖回去
-            if (card.classList.contains('flip')) {
-                card.classList.remove('flip');
-                selectedCards = selectedCards.filter(c => c !== card);
-                updateConfirmButton();
-                return;
-            }
-
-            // 情况2：点击未翻开的 -> 尝试翻开
-            if (selectedCards.length < 2) {
-                card.classList.add('flip');
-                selectedCards.push(card);
-                updateConfirmButton();
-            } else {
-                // 震动提示
-                card.style.transform = "translateX(5px)";
-                setTimeout(() => card.style.transform = "translateX(0)", 100);
-            }
         }
 
         function updateConfirmButton() {
@@ -449,13 +467,12 @@
             const card2 = selectedCards[1];
 
             if (card1.dataset.pairId === card2.dataset.pairId) {
-                // 配对成功
+                // 成功
                 score++;
                 scoreEl.textContent = score;
                 card1.classList.add('matched');
                 card2.classList.add('matched');
                 
-                // 成功后因为是弹窗，不需要 lockBoard，因为弹窗层级最高会挡住操作
                 showModal(card1.dataset.modalTitle, card1.dataset.modalText, card1.dataset.modalImage);
                 
                 resetSelection();
@@ -463,8 +480,8 @@
                     setTimeout(() => alert("🎉 恭喜！所有旧俗已完成重构！"), 800);
                 }
             } else {
-                // 配对失败
-                lockBoard = true; // 锁定面板
+                // 失败
+                lockBoard = true;
                 lives--;
                 updateLivesDisplay();
                 document.body.classList.add('shake-screen');
@@ -482,9 +499,8 @@
                     } else {
                         card1.classList.remove('flip');
                         card2.classList.remove('flip');
-                        
-                        resetSelection(); // 自动恢复文字
-                        lockBoard = false; // 解锁
+                        resetSelection();
+                        lockBoard = false;
                     }
                 }, 1000);
             }
@@ -528,4 +544,3 @@
     </script>
 </body>
 </html>
-
