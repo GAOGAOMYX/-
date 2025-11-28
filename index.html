@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ritual Remix - 习俗重构</title>
     <style>
         /* --- 1. 基础变量 --- */
@@ -23,10 +23,11 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: 100vh;
-            /* 关键修复：大幅增加底部内边距，防止按钮遮挡最后一张卡牌 */
-            padding-bottom: 160px; 
+            /* 关键修复：使用 dvh 适应移动端地址栏伸缩，防止布局跳动 */
+            min-height: 100dvh; 
+            padding-bottom: 160px; /* 底部留白 */
             overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
         }
 
         /* --- 2. 动画效果 --- */
@@ -55,8 +56,11 @@
             gap: 12px;
             max-width: 600px; width: 95%;
             perspective: 1000px;
-            margin-bottom: 20px; /* 这里的边距可以稍微减小，因为body padding够大了 */
+            margin-bottom: 20px;
             transition: opacity 0.5s;
+            /* 确保网格层级正常，不遮挡其他元素 */
+            position: relative; 
+            z-index: 1;
         }
         @media (min-width: 600px) {
             .game-grid { grid-template-columns: repeat(4, 1fr); gap: 15px; }
@@ -67,8 +71,16 @@
             background-color: transparent; height: 160px;
             cursor: pointer; position: relative;
             transform-style: preserve-3d; transition: transform 0.6s;
-            /* 确保卡片层级正确 */
-            z-index: 1; 
+            z-index: 2; 
+            
+            /* 【核心修复1】分离触摸与点击：
+               告诉浏览器这里主要是点击操作，不要等待双击缩放判断 
+               这能显著解决滑动停止后点击不灵敏的问题 */
+            touch-action: manipulation;
+            
+            /* 【核心修复2】性能优化：
+               将变换提升到合成层，防止滑动时点击区域跟不上视觉区域 */
+            will-change: transform;
         }
 
         .card.flip { transform: rotateY(180deg); }
@@ -79,6 +91,8 @@
             justify-content: center; align-items: center; text-align: center;
             padding: 8px; box-sizing: border-box; backface-visibility: hidden;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-size: 0.9rem; line-height: 1.3;
+            /* 防止内部元素阻挡点击事件 */
+            pointer-events: none; 
         }
 
         /* 正面样式 */
@@ -106,7 +120,7 @@
             color: var(--blue-color); 
         }
 
-        /* 翻开/选中状态：添加轻微阴影，不改变边框 */
+        /* 翻开/选中状态 */
         .card.flip .back {
             box-shadow: 0 8px 20px rgba(0,0,0,0.15); 
         }
@@ -115,6 +129,8 @@
         .card.matched .back {
             border-color: var(--green-color); 
             box-shadow: 0 0 10px rgba(46, 125, 50, 0.3);
+            /* 匹配成功后恢复点击事件，以便查看详情 */
+            pointer-events: auto; 
         }
         .card.matched .back::after {
             content: "ℹ️ 点击回顾"; position: absolute; bottom: 8px; left: 50%;
@@ -131,38 +147,46 @@
 
         /* --- 5. 确认按钮区域 --- */
         #action-bar {
-            position: fixed; bottom: 20px; left: 0; width: 100%;
+            position: fixed; bottom: 30px; left: 0; width: 100%;
             display: flex; justify-content: center; 
-            pointer-events: none; /* 容器穿透点击，避免遮挡左右两侧 */
-            z-index: 50;
+            pointer-events: none; 
+            z-index: 999; /* 确保层级最高 */
+            /* 启用硬件加速，防止滚动时抖动 */
+            transform: translateZ(0);
         }
 
         #confirm-btn {
-            pointer-events: auto; /* 只有按钮本体阻挡点击 */
+            pointer-events: auto; 
             background-color: var(--btn-disabled);
             color: white; border: none;
-            padding: 15px 50px; border-radius: 50px;
+            padding: 15px 0; 
+            min-width: 220px; /* 锁定宽度，防止文字改变时跳动 */
+            width: 60%; max-width: 300px;
+            border-radius: 50px;
             font-size: 1.1rem; font-weight: bold;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
+            transition: background-color 0.3s, transform 0.1s; /* 移除 all transition，只做必要的动画 */
             cursor: not-allowed;
-            transform: translateY(0);
+            white-space: nowrap; 
+            
+            /* 优化触摸反馈 */
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         #confirm-btn.active {
             background-color: var(--blue-color);
             cursor: pointer;
             box-shadow: 0 8px 20px rgba(0, 86, 179, 0.4);
-            transform: scale(1.05);
         }
-        #confirm-btn.active:active { transform: scale(0.95); }
+        #confirm-btn.active:active { transform: scale(0.96); }
 
         /* --- 6. 弹窗样式 --- */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(5px);
             display: flex; justify-content: center; align-items: center;
-            z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+            z-index: 2000; opacity: 0; pointer-events: none; transition: opacity 0.3s;
         }
         .modal-overlay.active { opacity: 1; pointer-events: all; }
         
@@ -202,7 +226,7 @@
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: radial-gradient(circle, rgba(255,200,0,1) 0%, rgba(255,50,0,0.8) 50%, rgba(0,0,0,0.95) 100%);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+            z-index: 3000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
         }
         #explosion-overlay.active { opacity: 1; pointer-events: all; animation: flash 0.5s ease-out; }
         .boom-text {
@@ -225,7 +249,7 @@
 
     <h1>🃏 习俗重构 (Ritual Remix)</h1>
     <p class="instruction">
-        <b>游戏规则：</b><br>
+        <b>游戏规则更新：</b><br>
         1. 翻开任意两张卡牌。<br>
         2. 若想更换，点击已翻开的卡牌将其盖回。<br>
         3. 确定选择后，点击底部<b>“确认配对”</b>按钮。
@@ -233,7 +257,7 @@
     
     <div id="status-bar">
         <div>已配对: <span id="score">0</span> / 6</div>
-        <div id="lives-container">生命: <span id="lives">❤️❤️❤️</span></div>
+        <div id="lives-container">生命: <span id="lives">❤️❤️❤️❤️❤️</span></div>
     </div>
 
     <div class="game-grid" id="gameGrid">
@@ -311,9 +335,10 @@
         
         let cards = [];
         let score = 0;
-        let lives = 3;
-        const maxLives = 3;
+        let lives = 5;
+        const maxLives = 5;
         let selectedCards = []; 
+        let lockBoard = false;
 
         function initGame() {
             cards = [...cardsData].sort(() => 0.5 - Math.random());
@@ -324,6 +349,7 @@
             scoreEl.textContent = score;
             updateLivesDisplay();
             resetSelection(); 
+            lockBoard = false;
 
             cards.forEach(card => {
                 const cardEl = document.createElement('div');
@@ -359,6 +385,8 @@
                 }
 
                 cardEl.innerHTML = frontContent + backContent;
+                
+                // --- 【核心修复3】使用 click 事件，但因为 CSS 设置了 touch-action: manipulation，所以它会变快且准确 ---
                 cardEl.addEventListener('click', handleCardClick);
                 grid.appendChild(cardEl);
             });
@@ -372,29 +400,35 @@
             livesEl.textContent = hearts;
         }
 
-        function handleCardClick() {
-            if (this.classList.contains('matched')) {
-                showModal(this.dataset.modalTitle, this.dataset.modalText, this.dataset.modalImage);
+        function handleCardClick(e) {
+            // 如果面板锁定，直接返回，解决“狂点”导致的逻辑错误
+            if (lockBoard) return;
+            
+            // 确保点击的是卡牌容器
+            const card = e.currentTarget;
+
+            if (card.classList.contains('matched')) {
+                showModal(card.dataset.modalTitle, card.dataset.modalText, card.dataset.modalImage);
                 return;
             }
 
-            // 点击已翻开的 -> 盖回去
-            if (this.classList.contains('flip')) {
-                this.classList.remove('flip');
-                selectedCards = selectedCards.filter(card => card !== this);
+            // 情况1：点击已翻开的 -> 盖回去
+            if (card.classList.contains('flip')) {
+                card.classList.remove('flip');
+                selectedCards = selectedCards.filter(c => c !== card);
                 updateConfirmButton();
                 return;
             }
 
-            // 点击未翻开的 -> 尝试翻开 (最多2张)
+            // 情况2：点击未翻开的 -> 尝试翻开
             if (selectedCards.length < 2) {
-                this.classList.add('flip');
-                selectedCards.push(this);
+                card.classList.add('flip');
+                selectedCards.push(card);
                 updateConfirmButton();
             } else {
-                // 提示震动
-                this.style.transform = "translateX(5px)";
-                setTimeout(() => this.style.transform = "translateX(0)", 100);
+                // 震动提示
+                card.style.transform = "translateX(5px)";
+                setTimeout(() => card.style.transform = "translateX(0)", 100);
             }
         }
 
@@ -409,7 +443,7 @@
         }
 
         function triggerConfirmMatch() {
-            if (selectedCards.length !== 2) return;
+            if (lockBoard || selectedCards.length !== 2) return;
 
             const card1 = selectedCards[0];
             const card2 = selectedCards[1];
@@ -421,6 +455,7 @@
                 card1.classList.add('matched');
                 card2.classList.add('matched');
                 
+                // 成功后因为是弹窗，不需要 lockBoard，因为弹窗层级最高会挡住操作
                 showModal(card1.dataset.modalTitle, card1.dataset.modalText, card1.dataset.modalImage);
                 
                 resetSelection();
@@ -429,25 +464,27 @@
                 }
             } else {
                 // 配对失败
+                lockBoard = true; // 锁定面板
                 lives--;
                 updateLivesDisplay();
                 document.body.classList.add('shake-screen');
                 setTimeout(() => document.body.classList.remove('shake-screen'), 500);
 
-                const originalText = confirmBtn.textContent;
+                confirmBtn.classList.remove('active');
                 confirmBtn.style.backgroundColor = "#d32f2f";
                 confirmBtn.textContent = "配对错误！生命-1";
 
                 setTimeout(() => {
                     confirmBtn.style.backgroundColor = ""; 
-                    confirmBtn.textContent = originalText;
-
+                    
                     if (lives <= 0) {
                         triggerExplosion();
                     } else {
                         card1.classList.remove('flip');
                         card2.classList.remove('flip');
-                        resetSelection();
+                        
+                        resetSelection(); // 自动恢复文字
+                        lockBoard = false; // 解锁
                     }
                 }, 1000);
             }
