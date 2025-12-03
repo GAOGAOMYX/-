@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ritual Remix - 习俗重构</title>
+    <title>Ritual Rewrite</title>
     <style>
         /* --- 1. 基础变量 --- */
         :root {
@@ -14,6 +14,7 @@
             --modal-blue: #582a57;
             --modal-text: #4a5568;
             --btn-disabled: #cccccc;
+            --review-btn-color: #582a57;
         }
 
         body {
@@ -24,13 +25,11 @@
             flex-direction: column;
             align-items: center;
             min-height: 100dvh; 
-            padding-bottom: 150px; 
             overflow-x: hidden;
             -webkit-tap-highlight-color: transparent;
         }
 
         /* --- 2. 动画效果 --- */
-        /* 屏幕震动 */
         .shake-screen {
             animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
             transform: translate3d(0, 0, 0);
@@ -42,7 +41,6 @@
             40%, 60% { transform: translate3d(4px, 0, 0); }
         }
 
-        /* 【核心修复】卡牌拒绝震动 - 使用 CSS 动画代替 JS 修改样式 */
         @keyframes cardDeny {
             0%, 100% { transform: translateX(0); }
             20%, 60% { transform: translateX(-5px); }
@@ -53,6 +51,95 @@
             animation: cardDeny 0.3s ease-in-out;
         }
 
+        /* --- 3. Landing Page Styles (NEW) --- */
+        #landing-page {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: url('bg.jpg') no-repeat center center; /* 背景图片 */
+            background-size: cover;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 5000; /* 最高层级 */
+            background-color: #f4f4f4; /* 图片加载前的底色 */
+        }
+
+        #landing-title {
+            font-size: 2.5rem;
+            color: #333;
+            font-weight: 900;
+            margin-bottom: 40px;
+            text-shadow: 0 2px 4px rgba(255,255,255,0.8);
+            text-align: center;
+        }
+
+        .difficulty-container {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .diff-btn {
+            padding: 15px 30px;
+            border: 2px solid var(--blue-color);
+            background: rgba(255,255,255,0.8);
+            border-radius: 15px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--blue-color);
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        .diff-btn.selected {
+            background: var(--blue-color);
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(88, 42, 87, 0.4);
+        }
+
+        #landing-start-btn {
+            padding: 15px 60px;
+            background-color: var(--btn-disabled);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            cursor: not-allowed;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.1);
+        }
+
+        #landing-start-btn.ready {
+            background-color: var(--green-color);
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(46, 125, 50, 0.4);
+        }
+
+        #landing-rules-btn {
+            background: transparent;
+            border: none;
+            text-decoration: underline;
+            color: #555;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* --- Game Container (Hidden initially) --- */
+        #game-container {
+            display: none; /* 默认隐藏，等待开始 */
+            width: 100%;
+            flex-direction: column;
+            align-items: center;
+            padding-bottom: 150px;
+        }
+
         h1 { margin-top: 20px; font-size: 1.5rem; color: #333; text-align: center; }
 
         p.instruction {
@@ -60,7 +147,7 @@
             margin-bottom: 15px; padding: 0 20px; max-width: 600px; line-height: 1.5;
         }
 
-        /* --- 3. 网格布局 --- */
+        /* --- 4. Game Grid & Cards --- */
         .game-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -75,7 +162,6 @@
             .game-grid { grid-template-columns: repeat(4, 1fr); gap: 15px; }
         }
 
-        /* --- 4. 卡片样式 --- */
         .card {
             background-color: transparent; height: 190px;
             cursor: pointer; position: relative;
@@ -97,113 +183,92 @@
             pointer-events: none; 
         }
 
-        /* 正面样式 - 修改版 */
         .front {
-            /* 去掉背景色，保留圆角 */
-            background-color: transparent; 
-            border-radius: 0px; /* 确保图片也有圆角 */
-            overflow: hidden;    /* 裁切掉图片多余的角 */
-            border: none;        /* 如果你的图片自带边框，这里可以写 none；如果想要白边框，保留 2px solid white */
+            background-color: transparent; border-radius: 0px; overflow: hidden; border: none;
         }
+        .card[data-type="ritual"] .front { background: url('cover-red.jpg') no-repeat center center; background-size: cover; }
+        .card[data-type="rewrite"] .front { background: url('cover-blue.jpg') no-repeat center center; background-size: cover; }
 
-        /* 红牌封面图片 */
-        .card[data-type="ritual"] .front {
-            background: url('cover-red.jpg') no-repeat center center;
-            background-size: cover; /* 让图片铺满整个卡牌 */
-        }
-
-        /* 蓝牌封面图片 */
-        .card[data-type="rewrite"] .front {
-            background: url('cover-blue.jpg') no-repeat center center;
-            background-size: cover; /* 让图片铺满整个卡牌 */
-        }
-
-        /* 背面样式 */
         .back {
             background-color: white; transform: rotateY(180deg);
             border: 0px solid #ddd; padding-bottom: 25px;
         }
-        .card[data-type="ritual"] .back { 
-            border-top: 8px solid var(--red-color); 
-            color: var(--red-color); 
-        }
-        .card[data-type="rewrite"] .back { 
-            border-top: 8px solid var(--blue-color); 
-            color: var(--blue-color); 
-        }
+        .card[data-type="ritual"] .back { border-top: 8px solid var(--red-color); color: var(--red-color); }
+        .card[data-type="rewrite"] .back { border-top: 8px solid var(--blue-color); color: var(--blue-color); }
 
-        /* 选中状态 */
-        .card.flip .back {
-            box-shadow: 0 8px 20px rgba(0,0,0,0.15); 
-        }
+        .card.flip .back { box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
 
-        /* 匹配成功 */
         .card.matched .back {
             border-color: var(--green-color); 
             box-shadow: 0 0 10px rgba(46, 125, 50, 0.3);
             pointer-events: auto;
         }
-        /* 修改后的回顾按钮：尺寸更小更精致 */
+        
+        /* Review Button Style */
         .card.matched .back::after {
             content: "review";
-            position: absolute;
-            bottom: 35px;        /* 保持在底部 */
-            left: 50%;
-            transform: translateX(-50%);
-    
-            font-size: 0.85rem;  /* 【修改】字号改小 */
-            font-weight: bold;
-            background-color: #582a57;
-            color: white;
-    
-            padding: 5px 20px;   /* 【修改】内边距减小，按钮整体变小 */
-            border-radius: 20px; /* 圆角适应小尺寸 */
-    
-            white-space: nowrap;
-            box-shadow: none;
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            font-size: 0.85rem; font-weight: bold;
+            background-color: var(--review-btn-color); color: white;
+            padding: 5px 20px; border-radius: 20px;
+            white-space: nowrap; box-shadow: none;
             animation: fadeIn 0.5s ease-in-out;
-            pointer-events: auto;
-            z-index: 5;
+            pointer-events: auto; z-index: 5;
         }
 
-        .icon { font-size: 1.8rem; margin-bottom: 5px; }
-        .title { font-weight: bold; margin-bottom: 5px; font-size: 0.95rem; }
-        .desc { font-size: 0.8rem; color: #555; }
+        .text-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: transparent; border: none;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            padding: 10px 15px 55px 15px; 
+            box-sizing: border-box; z-index: 2; pointer-events: none;
+        }
+        .text-overlay .card-title {
+            font-weight: 900; font-size: 1.1rem; color: #000; margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(255, 255, 255, 0.8);
+        }
+        .text-overlay .card-desc {
+            font-size: 0.85rem; color: #333; line-height: 1.4; font-weight: bold;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+        }
+        .text-overlay .card-icon {
+            font-size: 2.5rem; margin-bottom: 10px;
+            filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.8)); 
+        }
 
-        /* --- 5. 确认按钮区域 --- */
+        /* --- 5. UI Elements --- */
         #action-bar {
-            position: fixed; 
-            bottom: 30px; 
-            left: 50%; transform: translateX(-50%);
-            width: auto;
-            z-index: 100;
-            pointer-events: none; 
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            width: auto; z-index: 100; pointer-events: none; 
         }
-
         #confirm-btn {
-            pointer-events: auto;
-            background-color: var(--btn-disabled);
-            color: white; border: none;
-            padding: 15px 0; 
-            min-width: 220px; 
-            width: 220px;
-            border-radius: 50px;
-            font-size: 1.1rem; font-weight: bold;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            transition: background-color 0.3s, transform 0.1s;
-            cursor: not-allowed;
-            white-space: nowrap; 
-            text-align: center;
+            pointer-events: auto; background-color: var(--btn-disabled);
+            color: white; border: none; padding: 15px 0; min-width: 220px; width: 220px;
+            border-radius: 50px; font-size: 1.1rem; font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2); transition: background-color 0.3s, transform 0.1s;
+            cursor: not-allowed; white-space: nowrap; text-align: center;
         }
-
         #confirm-btn.active {
-            background-color: #582a57;
-            cursor: pointer;
-            box-shadow: 0 8px 20px #582a57;
+            background-color: var(--blue-color); cursor: pointer;
+            box-shadow: 0 8px 20px rgba(0, 86, 179, 0.4);
         }
         #confirm-btn.active:active { transform: scale(0.96); }
 
-        /* --- 6. 弹窗样式 --- */
+        #status-bar {
+            margin-bottom: 15px; font-weight: bold;
+            background: white; padding: 8px 20px;
+            border-radius: 20px; color: var(--blue-color);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex; gap: 20px; align-items: center; flex-wrap: wrap; justify-content: center;
+        }
+        #rules-btn {
+            background: transparent; border: 2px solid var(--blue-color);
+            color: var(--blue-color); padding: 4px 15px; border-radius: 20px;
+            font-size: 0.9rem; font-weight: bold; cursor: pointer; transition: all 0.2s; margin-left: 10px;
+        }
+        #lives-container { color: #d32f2f; }
+
+        /* --- 6. Overlays --- */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(5px);
@@ -216,33 +281,19 @@
             background: white; padding: 24px; border-radius: 28px;
             width: 85%; max-width: 360px; text-align: center;
             box-shadow: 0 25px 50px rgba(0,0,0,0.15);
-            display: flex; flex-direction: column; align-items: center;
-            box-sizing: border-box;
+            display: flex; flex-direction: column; align-items: center; box-sizing: border-box;
         }
         .modal-image-container { width: 100%; height: auto; display: none; margin-bottom: 10px; }
         .modal-image-container img { width: 100%; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        .modal-icon-container { margin-top: 10px; margin-bottom: 20px; display: none; }
         .modal-content-area { padding: 15px 0 0 0; text-align: left; width: 100%; }
         .modal h2 { color: var(--modal-blue); margin: 0 0 15px 0; font-size: 1.3rem; font-weight: 900; }
         .modal p { color: var(--modal-text); line-height: 1.6; font-size: 0.9rem; margin-bottom: 12px; text-align: justify; }
         .label-bias, .label-fix { color: var(--modal-blue); font-weight: bold; font-size: 0.95rem; }
-        
         .close-btn {
             background: var(--modal-blue); color: white; border: none; width: 140px;
             padding: 10px 0; border-radius: 50px; cursor: pointer;
-            font-size: 0.9rem; font-weight: bold; margin-top: 25px;
-            box-shadow: 0 6px 12px #582a57;
+            font-size: 0.9rem; font-weight: bold; margin-top: 25px; box-shadow: 0 6px 12px #582a57;
         }
-
-        /* --- 7. 状态栏 & 爆炸特效 --- */
-        #status-bar {
-            margin-bottom: 15px; font-weight: bold;
-            background: white; padding: 8px 20px;
-            border-radius: 20px; color: var(--blue-color);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            display: flex; gap: 20px; align-items: center; flex-wrap: wrap; justify-content: center;
-        }
-        #lives-container { color: #d32f2f; }
 
         #explosion-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -265,76 +316,56 @@
         #explosion-overlay.active .game-over-btn { opacity: 1; transform: translateY(0); }
         @keyframes flash { 0% { background: white; } 100% { background: radial-gradient(circle, rgba(255,69,0,1) 0%, rgba(0,0,0,1) 90%); } }
         
-        /* 修改后的文字层：增加底部留白，使文字上移 */
-        .text-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-    
+        #rules-image { width: 100%; height: auto; border-radius: 10px; display: block; }
+        
+        #back-btn {
             background: transparent;
-            border: none;
-    
-            display: flex;
-            flex-direction: column;
-            justify-content: center; /* 垂直居中 */
-            align-items: center;     /* 水平居中 */
-    
-            /* 【关键修改】底部设置为 55px，把文字内容往上顶，给按钮留出空间 */
-            padding: 10px 15px 55px 15px; 
-    
-            box-sizing: border-box;
-            z-index: 2;
-            pointer-events: none;
+            border: 2px solid var(--blue-color);
+            color: var(--blue-color);
+            padding: 4px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-right: 10px; /* 右边留点空隙 */
         }
 
-        /* 标题样式 */
-        .text-overlay .card-title {
-            font-weight: 900;     /* 加粗字体 */
-            font-size: 1.1rem;    /* 稍微加大字号 */
-            color: #000;          /* 纯黑文字 */
-            margin-bottom: 8px;   /* 标题和描述的间距 */
-            text-shadow: 0 2px 4px rgba(255, 255, 255, 0.8); /* 增加白色光晕，防止图片太花看不清字 */
-        }
-
-        /* 描述样式 */
-        .text-overlay .card-desc {
-            font-size: 0.85rem;
-            color: #333;          /* 深灰文字 */
-            line-height: 1.4;
-            font-weight: bold;    /* 加粗描述 */
-            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8); /* 增加白色光晕 */
-        }
-        .text-overlay .card-icon {
-            font-size: 2.5rem;    /* 图标大小 */
-            margin-bottom: 10px;  /* 图标和标题之间的距离 */
-    
-            /* 给图标加个白色发光描边，防止背景太深看不清 */
-            filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.8)); 
+        #back-btn:active {
+            background: var(--blue-color);
+            color: white;
         }
     </style>
 </head>
 <body>
 
-    <h1>🃏 习俗重构 (Ritual Remix)</h1>
-    <p class="instruction">
-        <b>游戏规则更新：</b><br>
-        1. 翻开任意两张卡牌。<br>
-        2. 若想更换，点击已翻开的卡牌将其盖回。<br>
-        3. 确定选择后，点击底部<b>“确认配对”</b>按钮。
-    </p>
-    
-    <div id="status-bar">
-        <div>已配对: <span id="score">0</span> / 6</div>
-        <div id="lives-container">生命: <span id="lives">❤️❤️❤️❤️❤️</span></div>
-    </div>
-
-    <div class="game-grid" id="gameGrid">
+    <div id="landing-page">
+        <div id="landing-title">Ritual Rewrite</div>
+        
+        <div class="difficulty-container">
+            <button class="diff-btn" onclick="selectDifficulty('simple')">Simple</button>
+            <button class="diff-btn" onclick="selectDifficulty('normal')">Normal</button>
         </div>
 
-    <div id="action-bar">
-        <button id="confirm-btn" onclick="triggerConfirmMatch()">请翻开两张牌</button>
+        <button id="landing-start-btn" onclick="startGame()">Start Game</button>
+        
+    </div>
+
+    <div id="game-container">
+        <h1>Ritual Rewrite</h1>
+        <div id="status-bar">
+            <button id="back-btn" onclick="backToMenu()">Back</button>
+            <div>Matched: <span id="score">0</span> / 6</div>
+            <div id="lives-container">Lives: <span id="lives">❤️❤️❤️</span></div>
+            <button id="rules-btn" onclick="openRules()">Rules</button>
+        </div>
+
+        <div class="game-grid" id="gameGrid">
+            </div>
+
+        <div id="action-bar">
+            <button id="confirm-btn" onclick="triggerConfirmMatch()">Please flip 2 cards</button>
+        </div>
     </div>
 
     <div class="modal-overlay" id="modalOverlay">
@@ -349,88 +380,97 @@
                 <h2 id="modalTitle">标题</h2>
                 <div id="modalText">内容...</div>
             </div>
-            <button class="close-btn" onclick="closeModal()">继续游戏</button>
+            <button class="close-btn" onclick="closeModal()">Continue</button>
         </div>
     </div>
 
     <div id="explosion-overlay">
         <div class="boom-text">BOOM!</div>
-        <div style="color: white; font-size: 1.2rem; margin-top: 20px; font-weight: bold;">任务失败，卡牌已销毁</div>
-        <button class="game-over-btn" onclick="location.reload()">重新开始</button>
+        <div style="color: white; font-size: 1.2rem; margin-top: 20px; font-weight: bold;">Mission Failed. Cards Destroyed.</div>
+        <button class="game-over-btn" onclick="location.reload()">Restart</button>
+    </div>
+
+    <div class="modal-overlay" id="rulesOverlay">
+        <div class="modal">
+            <img id="rules-image" src="rules.jpg" alt="Game Rules">
+            <button class="close-btn" onclick="closeRules()">Close</button>
+        </div>
     </div>
 
     <script>
-        // --- 1. 游戏数据 ---
-        const cardsData = [
-            { id: '1a', pairId: 1, type: 'ritual', icon: '', title: '明暗之分', desc: '男士入暗室，女士进明厅。',
-              modalTitle: '空间刻板印象', image: 'card1-red1.jpg', modalImage: 'Pair 1.jpg',
-              modalText: '<span class="label-bias">偏见：</span>这种设计强化了男性应该“严肃深沉”，而女性应该“作为装饰”的刻板印象。<br><br><span class="label-fix">修正：</span>应根据情感需求（如私密性或社交性）而非性别分类来设计空间。' },
-            { id: '1b', pairId: 1, type: 'rewrite', icon: '', title: '随心选座', desc: '按私密需求而非性别落座。',
-              modalTitle: '空间刻板印象', image: 'card1-blue1.jpg', modalImage: 'Pair 1.jpg',
-              modalText: '<span class="label-bias">偏见：</span>这种设计强化了男性应该“严肃深沉”，而女性应该“作为装饰”的刻板印象。<br><br><span class="label-fix">修正：</span>应根据情感需求（如私密性或社交性）而非性别分类来设计空间。' },
+        // --- 1. 数据集分离 ---
+        
+        // 难度：普通 (原版数据)
+        const dataNormal = [
+            { id: '1a', pairId: 1, type: 'ritual', icon: '', title: 'Invisible Service', desc: 'Servers wore the same color as the walls.',
+              modalTitle: 'Spatial Stereotypes', image: 'card1-red1.jpg', modalImage: 'Pair 1.jpg',
+              modalText: '<span class="label-bias">Bias: </span>This design reinforces the stereotype that men should be "serious/deep" while women are "decorative".<br><br><span class="label-fix">Fix: </span>Spaces should be designed based on emotional needs (privacy or social) rather than gender.' },
+            { id: '1b', pairId: 1, type: 'rewrite', icon: '', title: '', desc: 'Different uniform colors of servers show different roles. ',
+              modalTitle: 'Spatial Stereotypes', image: 'card1-blue1.jpg', modalImage: 'Pair 1.jpg',
+              modalText: '<span class="label-bias">Bias: </span>This design reinforces the stereotype that men should be "serious/deep" while women are "decorative".<br><br><span class="label-fix">Fix: </span>Spaces should be designed based on emotional needs (privacy or social) rather than gender.' },
             
-            { id: '2a', pairId: 2, type: 'ritual', icon: '', title: '高背椅', desc: '像画框一样框住女性。',
-              modalTitle: '被审视的视角', image: 'card1-red1.jpg', modalText: '<b>偏见：</b> 麦金托什的高背椅像画框一样将女性“框”在其中，使其成为被观赏的对象。<br><br><b>修正：</b> 设计应优先考虑身体的舒适与自由，而非视觉构图。' },
-            { id: '2b', pairId: 2, type: 'rewrite', icon: '', title: '舒适至上', desc: '人体工学优于被观赏性。',
-              modalTitle: '被审视的视角', image: 'card1-blue1.jpg', modalText: '<b>偏见：</b> 麦金托什的高背椅像画框一样将女性“框”在其中，使其成为被观赏的对象。<br><br><b>修正：</b> 设计应优先考虑身体的舒适与自由，而非视觉构图。' },
+            { id: '2a', pairId: 2, type: 'ritual', icon: '', title: 'High-back Chair', desc: 'Frames women like a picture.',
+              modalTitle: 'The Male Gaze', image: 'card1-red1.jpg', modalText: '<b>Bias: </b> Mackintosh\'s high-back chairs frame women, making them objects to be looked at.<br><br><b>Fix: </b> Design should prioritize physical comfort and freedom, not visual composition.' },
+            { id: '2b', pairId: 2, type: 'rewrite', icon: '', title: 'Comfort First', desc: 'Ergonomics over being watched.',
+              modalTitle: 'The Male Gaze', image: 'card1-blue1.jpg', modalText: '<b>Bias: </b> Mackintosh\'s high-back chairs frame women, making them objects to be looked at.<br><br><b>Fix: </b> Design should prioritize physical comfort and freedom, not visual composition.' },
             
-            { id: '3a', pairId: 3, type: 'ritual', icon: '', title: '他点单', desc: '公共场合由男士代劳点单。',
-              modalTitle: '被噤声的自主权', image: 'card1-red1.jpg', modalText: '<b>偏见：</b> 传统礼仪在交易和点单环节剥夺了女性直接对话的权利。<br><br><b>修正：</b> 使用彩球（红=茶，蓝=咖啡）作为实物代码，让每个人无需开口即可平等表达需求。' },
-            { id: '3b', pairId: 3, type: 'rewrite', icon: '', title: '彩球暗号', desc: '实物编码实现平等发声。',
-              modalTitle: '被噤声的自主权', image: 'card1-blue1.jpg', modalText: '<b>偏见：</b> 传统礼仪在交易和点单环节剥夺了女性直接对话的权利。<br><br><b>修正：</b> 使用彩球（红=茶，蓝=咖啡）作为实物代码，让每个人无需开口即可平等表达需求。' },
+            { id: '3a', pairId: 3, type: 'ritual', icon: '', title: 'He Orders', desc: 'Men order for women in public.',
+              modalTitle: 'Silenced Autonomy', image: 'card1-red1.jpg', modalText: '<b>Bias: </b> Traditional etiquette deprives women of direct dialogue in transactions.<br><br><b>Fix: </b> Use colored balls (Red=Tea, Blue=Coffee) as physical codes so everyone expresses needs equally without speaking.' },
+            { id: '3b', pairId: 3, type: 'rewrite', icon: '', title: 'Color Code', desc: 'Physical code for equal voice.',
+              modalTitle: 'Silenced Autonomy', image: 'card1-blue1.jpg', modalText: '<b>Bias: </b> Traditional etiquette deprives women of direct dialogue in transactions.<br><br><b>Fix: </b> Use colored balls (Red=Tea, Blue=Coffee) as physical codes so everyone expresses needs equally without speaking.' },
             
-            { id: '4a', pairId: 4, type: 'ritual', icon: '', title: '闲言碎语', desc: '茶室谈话被视为琐碎闲聊。',
-              modalTitle: '话题贬低', image: 'card1-red1.jpg', modalText: '<b>偏见：</b> 将女性的社交网络贬低为“八卦”，而男性的谈话则是“生意”。<br><br><b>修正：</b> 将空间重塑为创意会议室，在这里所有形式的对话都具有同等价值。' },
-            { id: '4b', pairId: 4, type: 'rewrite', icon: '', title: '社区中心', desc: '所有对话皆有价值。',
-              modalTitle: '话题贬低', image: 'card1-blue1.jpg', modalText: '<b>偏见：</b> 将女性的社交网络贬低为“八卦”，而男性的谈话则是“生意”。<br><br><b>修正：</b> 将空间重塑为创意会议室，在这里所有形式的对话都具有同等价值。' },
+            { id: '4a', pairId: 4, type: 'ritual', icon: '', title: 'Gossip', desc: 'Tea room talk seen as trivial.',
+              modalTitle: 'Trivialized Topics', image: 'card1-red1.jpg', modalImage: 'Pair 2.jpg', modalText: '<b>Bias: </b> Devaluing women\'s social networks as "gossip" while men\'s talk is "business".<br><br><b>Fix: </b> Reframe the space as a creative meeting room where all forms of dialogue have equal value.' },
+            { id: '4b', pairId: 4, type: 'rewrite', icon: '', title: 'Community Hub', desc: 'All conversations have value.',
+              modalTitle: 'Trivialized Topics', image: 'card1-blue1.jpg', modalImage: 'Pair 2.jpg', modalText: '<b>Bias: </b> Devaluing women\'s social networks as "gossip" while men\'s talk is "business".<br><br><b>Fix: </b> Reframe the space as a creative meeting room where all forms of dialogue have equal value.' },
             
-            { id: '5a', pairId: 5, type: 'ritual', icon: '', title: '活体装饰', desc: '女侍者与墙壁融为一体。',
-              modalTitle: '美学劳役', image: 'card1-red1.jpg', modalText: '<b>偏见：</b> 这种设计将服务人员视为环境中的装饰摆设，而非职业劳动者。<br><br><b>修正：</b> 白色信号球代表“需要服务”。这使角色从被动的侍从转变为主动响应的专业人员。' },
-            { id: '5b', pairId: 5, type: 'rewrite', icon: '', title: '白色信号球', desc: '按需服务，而非展示。',
-              modalTitle: '美学劳役', image: 'card1-blue1.jpg', modalText: '<b>偏见：</b> 这种设计将服务人员视为环境中的装饰摆设，而非职业劳动者。<br><br><b>修正：</b> 白色信号球代表“需要服务”。这使角色从被动的侍从转变为主动响应的专业人员。' },
+            { id: '5a', pairId: 5, type: 'ritual', icon: '', title: 'Living Decor', desc: 'Waitresses blend into walls.',
+              modalTitle: 'Aesthetic Labor', image: 'card1-red1.jpg', modalText: '<b>Bias: </b> Treating service staff as decorative fixtures rather than professional workers.<br><br><b>Fix: </b> White signal ball represents "service needed". This shifts the role from passive servant to active professional.' },
+            { id: '5b', pairId: 5, type: 'rewrite', icon: '', title: 'Service Signal', desc: 'Service on demand, not display.',
+              modalTitle: 'Aesthetic Labor', image: 'card1-blue1.jpg', modalText: '<b>Bias: </b> Treating service staff as decorative fixtures rather than professional workers.<br><br><b>Fix: </b> White signal ball represents "service needed". This shifts the role from passive servant to active professional.' },
             
-            { id: '6a', pairId: 6, type: 'ritual', icon: '', title: '账单', desc: '账单自动递给男士。',
-              modalTitle: '经济依附', image: 'card1-red1.jpg', modalText: '<b>偏见：</b> 默认预设男性为唯一的“供养者”或买单人。<br><br><b>修正：</b> 设置中立支付区或二维码，使付款成为一种私密的、功能性的行为，而非一种性别表演。' },
-            { id: '6b', pairId: 6, type: 'rewrite', icon: '', title: '中立支付', desc: '中央区域，私密支付。',
-              modalTitle: '经济依附', image: 'card1-blue1.jpg', modalText: '<b>偏见：</b> 默认预设男性为唯一的“供养者”或买单人。<br><br><b>修正：</b> 设置中立支付区或二维码，使付款成为一种私密的、功能性的行为，而非一种性别表演。' }
+            { id: '6a', pairId: 6, type: 'ritual', icon: '', title: 'The Bill', desc: 'Bill handed to men automatically.',
+              modalTitle: 'Economic Dependence', image: 'card1-red1.jpg', modalText: '<b>Bias: </b> Default assumption that men are the sole "providers" or payers.<br><br><b>Fix: </b> Neutral payment zones or QR codes make payment a private, functional act, not a gender performance.' },
+            { id: '6b', pairId: 6, type: 'rewrite', icon: '', title: 'Neutral Pay', desc: 'Central zone, private payment.',
+              modalTitle: 'Economic Dependence', image: 'card1-blue1.jpg', modalText: '<b>Bias: </b> Default assumption that men are the sole "providers" or payers.<br><br><b>Fix: </b> Neutral payment zones or QR codes make payment a private, functional act, not a gender performance.' }
         ];
 
-        /* const cardsData = [
-            { id: '1a', pairId: 1, type: 'ritual', icon: '🚪', title: '明暗之分', desc: '男士入暗室，女士进明厅。',
-              modalTitle: '空间刻板印象', image: 'card1-red1.jpg', modalImage: 'Pair 1.jpg',
-              modalText: '<span class="label-bias">偏见：</span>这种设计强化了男性应该“严肃深沉”，而女性应该“作为装饰”的刻板印象。<br><br><span class="label-fix">修正：</span>应根据情感需求（如私密性或社交性）而非性别分类来设计空间。' },
-            { id: '1b', pairId: 1, type: 'rewrite', icon: '🌗', title: '随心选座', desc: '按私密需求而非性别落座。',
-              modalTitle: '空间刻板印象', image: 'card1-blue1.jpg', modalImage: 'Pair 1.jpg',
-              modalText: '<span class="label-bias">偏见：</span>这种设计强化了男性应该“严肃深沉”，而女性应该“作为装饰”的刻板印象。<br><br><span class="label-fix">修正：</span>应根据情感需求（如私密性或社交性）而非性别分类来设计空间。' },
+        // 难度：简单 (更直白，适合青少年)
+        const dataSimple = [
+            { id: '1a', pairId: 1, type: 'ritual', icon: '', title: 'Separated Seats', desc: 'Strict rules: Men in dark, Women in light.',
+              modalTitle: 'Seating Rules', image: 'card1-red1.jpg', modalImage: 'Pair 1.jpg',
+              modalText: '<b>Old Way:</b> Rules forced men into dark "serious" rooms and women into bright "pretty" rooms.<br><br><b>New Way:</b> Forget gender! Pick your seat based on your mood: dark for secrets, bright for sunshine.' },
+            { id: '1b', pairId: 1, type: 'rewrite', icon: '', title: 'Pick Your Spot', desc: 'Sit where you feel comfortable.',
+              modalTitle: 'Seating Rules', image: 'card1-blue1.jpg', modalImage: 'Pair 1.jpg',
+              modalText: '<b>Old Way:</b> Rules forced men into dark "serious" rooms and women into bright "pretty" rooms.<br><br><b>New Way:</b> Forget gender! Pick your seat based on your mood: dark for secrets, bright for sunshine.' },
             
-            { id: '2a', pairId: 2, type: 'ritual', icon: '🪑', title: '高背椅', desc: '像画框一样框住女性。',
-              modalTitle: '被审视的视角', image: 'card1-red1.jpg', modalText: '<b>偏见：</b> 麦金托什的高背椅像画框一样将女性“框”在其中，使其成为被观赏的对象。<br><br><b>修正：</b> 设计应优先考虑身体的舒适与自由，而非视觉构图。' },
-            { id: '2b', pairId: 2, type: 'rewrite', icon: '🛋️', title: '舒适至上', desc: '人体工学优于被观赏性。',
-              modalTitle: '被审视的视角', image: 'card1-blue1.jpg', modalText: '<b>偏见：</b> 麦金托什的高背椅像画框一样将女性“框”在其中，使其成为被观赏的对象。<br><br><b>修正：</b> 设计应优先考虑身体的舒适与自由，而非视觉构图。' },
+            { id: '2a', pairId: 2, type: 'ritual', icon: '', title: 'Frame Chair', desc: 'Chairs designed to look at women.',
+              modalTitle: 'Just for Looks', image: 'card1-red1.jpg', modalText: '<b>Old Way:</b> High-back chairs acted like picture frames, turning women into "art" to be looked at.<br><br><b>New Way:</b> Chairs are for sitting! Design should make you feel comfortable, not watched.' },
+            { id: '2b', pairId: 2, type: 'rewrite', icon: '', title: 'Comfy Chair', desc: 'Designed for sitting, not posing.',
+              modalTitle: 'Just for Looks', image: 'card1-blue1.jpg', modalText: '<b>Old Way:</b> High-back chairs acted like picture frames, turning women into "art" to be looked at.<br><br><b>New Way:</b> Chairs are for sitting! Design should make you feel comfortable, not watched.' },
             
-            { id: '3a', pairId: 3, type: 'ritual', icon: '🙊', title: '他点单', desc: '公共场合由男士代劳点单。',
-              modalTitle: '被噤声的自主权', image: 'card1-red1.jpg', modalText: '<b>偏见：</b> 传统礼仪在交易和点单环节剥夺了女性直接对话的权利。<br><br><b>修正：</b> 使用彩球（红=茶，蓝=咖啡）作为实物代码，让每个人无需开口即可平等表达需求。' },
-            { id: '3b', pairId: 3, type: 'rewrite', icon: '🔴🔵', title: '彩球暗号', desc: '实物编码实现平等发声。',
-              modalTitle: '被噤声的自主权', image: 'card1-blue1.jpg', modalText: '<b>偏见：</b> 传统礼仪在交易和点单环节剥夺了女性直接对话的权利。<br><br><b>修正：</b> 使用彩球（红=茶，蓝=咖啡）作为实物代码，让每个人无需开口即可平等表达需求。' },
+            { id: '3a', pairId: 3, type: 'ritual', icon: '', title: 'Silent Order', desc: 'Women couldn\'t order for themselves.',
+              modalTitle: 'Speaking Up', image: 'card1-red1.jpg', modalText: '<b>Old Way:</b> It was considered "impolite" for women to speak to waiters directly.<br><br><b>New Way:</b> Use colored balls! Red for Tea, Blue for Coffee. Everyone gets what they want without awkward rules.' },
+            { id: '3b', pairId: 3, type: 'rewrite', icon: '', title: 'Ball Signal', desc: 'Use tools to speak freely.',
+              modalTitle: 'Speaking Up', image: 'card1-blue1.jpg', modalText: '<b>Old Way:</b> It was considered "impolite" for women to speak to waiters directly.<br><br><b>New Way:</b> Use colored balls! Red for Tea, Blue for Coffee. Everyone gets what they want without awkward rules.' },
             
-            { id: '4a', pairId: 4, type: 'ritual', icon: '🗣️', title: '闲言碎语', desc: '茶室谈话被视为琐碎闲聊。',
-              modalTitle: '话题贬低', image: 'card1-red1.jpg', modalText: '<b>偏见：</b> 将女性的社交网络贬低为“八卦”，而男性的谈话则是“生意”。<br><br><b>修正：</b> 将空间重塑为创意会议室，在这里所有形式的对话都具有同等价值。' },
-            { id: '4b', pairId: 4, type: 'rewrite', icon: '🤝', title: '社区中心', desc: '所有对话皆有价值。',
-              modalTitle: '话题贬低', image: 'card1-blue1.jpg', modalText: '<b>偏见：</b> 将女性的社交网络贬低为“八卦”，而男性的谈话则是“生意”。<br><br><b>修正：</b> 将空间重塑为创意会议室，在这里所有形式的对话都具有同等价值。' },
+            { id: '4a', pairId: 4, type: 'ritual', icon: '', title: 'Just Gossip', desc: 'Women\'s talk was ignored.',
+              modalTitle: 'Power Talk', image: 'card1-red1.jpg', modalImage: 'Pair 2.jpg', modalText: '<b>Old Way:</b> People thought women only talked about clothes and trivia ("gossip").<br><br><b>New Way:</b> This is a Voting Hall! Talking creates power and changes the future.' },
+            { id: '4b', pairId: 4, type: 'rewrite', icon: '', title: 'Voting Hall', desc: 'Talking changes the world.',
+              modalTitle: 'Power Talk', image: 'card1-blue1.jpg', modalImage: 'Pair 2.jpg', modalText: '<b>Old Way:</b> People thought women only talked about clothes and trivia ("gossip").<br><br><b>New Way:</b> This is a Voting Hall! Talking creates power and changes the future.' },
             
-            { id: '5a', pairId: 5, type: 'ritual', icon: '👗', title: '活体装饰', desc: '女侍者与墙壁融为一体。',
-              modalTitle: '美学劳役', image: 'card1-red1.jpg', modalText: '<b>偏见：</b> 这种设计将服务人员视为环境中的装饰摆设，而非职业劳动者。<br><br><b>修正：</b> 白色信号球代表“需要服务”。这使角色从被动的侍从转变为主动响应的专业人员。' },
-            { id: '5b', pairId: 5, type: 'rewrite', icon: '⚪', title: '白色信号球', desc: '按需服务，而非展示。',
-              modalTitle: '美学劳役', image: 'card1-blue1.jpg', modalText: '<b>偏见：</b> 这种设计将服务人员视为环境中的装饰摆设，而非职业劳动者。<br><br><b>修正：</b> 白色信号球代表“需要服务”。这使角色从被动的侍从转变为主动响应的专业人员。' },
+            { id: '5a', pairId: 5, type: 'ritual', icon: '', title: 'Invisible Staff', desc: 'Uniforms matched the wallpaper.',
+              modalTitle: 'Not a Decoration', image: 'card1-red1.jpg', modalText: '<b>Old Way:</b> Waitresses wore dresses matching the walls so they would be "invisible".<br><br><b>New Way:</b> Hold up a white ball! This means "I am working". Staff are pros, not decorations.' },
+            { id: '5b', pairId: 5, type: 'rewrite', icon: '', title: 'Active Pro', desc: 'Staff stand out and help.',
+              modalTitle: 'Not a Decoration', image: 'card1-blue1.jpg', modalText: '<b>Old Way:</b> Waitresses wore dresses matching the walls so they would be "invisible".<br><br><b>New Way:</b> Hold up a white ball! This means "I am working". Staff are pros, not decorations.' },
             
-            { id: '6a', pairId: 6, type: 'ritual', icon: '🧾', title: '账单', desc: '账单自动递给男士。',
-              modalTitle: '经济依附', image: 'card1-red1.jpg', modalText: '<b>偏见：</b> 默认预设男性为唯一的“供养者”或买单人。<br><br><b>修正：</b> 设置中立支付区或二维码，使付款成为一种私密的、功能性的行为，而非一种性别表演。' },
-            { id: '6b', pairId: 6, type: 'rewrite', icon: '📱', title: '中立支付', desc: '中央区域，私密支付。',
-              modalTitle: '经济依附', image: 'card1-blue1.jpg', modalText: '<b>偏见：</b> 默认预设男性为唯一的“供养者”或买单人。<br><br><b>修正：</b> 设置中立支付区或二维码，使付款成为一种私密的、功能性的行为，而非一种性别表演。' }
+            { id: '6a', pairId: 6, type: 'ritual', icon: '', title: 'Man Pays', desc: 'Bill always went to the man.',
+              modalTitle: 'Who Pays?', image: 'card1-red1.jpg', modalText: '<b>Old Way:</b> Waiters assumed the man always had the money.<br><br><b>New Way:</b> Neutral Payment Zone. Anyone can scan a QR code. Paying is just paying, not a show.' },
+            { id: '6b', pairId: 6, type: 'rewrite', icon: '', title: 'QR Pay', desc: 'Anyone can pay privately.',
+              modalTitle: 'Who Pays?', image: 'card1-blue1.jpg', modalText: '<b>Old Way:</b> Waiters assumed the man always had the money.<br><br><b>New Way:</b> Neutral Payment Zone. Anyone can scan a QR code. Paying is just paying, not a show.' }
         ];
-        */
 
-        // --- 2. 游戏逻辑 ---
+        // --- 3. 游戏状态 ---
         const grid = document.getElementById('gameGrid');
         const modalOverlay = document.getElementById('modalOverlay');
         const scoreEl = document.getElementById('score');
@@ -438,15 +478,52 @@
         const confirmBtn = document.getElementById('confirm-btn');
         const explosionOverlay = document.getElementById('explosion-overlay');
         
+        let activeCardsData = []; // 当前使用的数据集
+        let selectedDifficulty = null;
         let cards = [];
         let score = 0;
-        let lives = 5;
-        const maxLives = 5;
+        let lives = 3;
+        const maxLives = 3;
         let selectedCards = []; 
         let lockBoard = false;
 
+        // --- 4. 前置页面逻辑 (Landing Page Logic) ---
+        function selectDifficulty(level) {
+            selectedDifficulty = level;
+            
+            // UI 更新：高亮选中按钮
+            document.querySelectorAll('.diff-btn').forEach(btn => btn.classList.remove('selected'));
+            event.target.classList.add('selected');
+
+            // 激活开始按钮
+            const startBtn = document.getElementById('landing-start-btn');
+            startBtn.disabled = false;
+            startBtn.classList.add('ready');
+        }
+
+        function startGame() {
+            if (!selectedDifficulty) return;
+
+            // 1. 设置数据
+            if (selectedDifficulty === 'simple') {
+                activeCardsData = [...dataSimple];
+            } else {
+                activeCardsData = [...dataNormal];
+            }
+
+            // 2. 切换界面
+            document.getElementById('landing-page').style.display = 'none';
+            const gameContainer = document.getElementById('game-container');
+            gameContainer.style.display = 'flex'; // 显示游戏界面
+
+            // 3. 初始化游戏
+            initGame();
+        }
+
+        // --- 5. 游戏主逻辑 ---
         function initGame() {
-            cards = [...cardsData].sort(() => 0.5 - Math.random());
+            // 使用 activeCardsData 而不是之前的 cardsData
+            cards = [...activeCardsData].sort(() => 0.5 - Math.random());
             grid.innerHTML = '';
             
             lives = maxLives;
@@ -461,30 +538,28 @@
                 cardEl.classList.add('card');
                 cardEl.dataset.pairId = card.pairId;
                 cardEl.dataset.type = card.type;
+                // 数据绑定
                 cardEl.dataset.modalTitle = card.modalTitle;
                 cardEl.dataset.modalText = card.modalText;
                 if(card.modalImage) cardEl.dataset.modalImage = card.modalImage;
 
                 const frontContent = `
-                    <div class="front">
-                    </div>
+                    <div class="front"></div>
                 `;
-                /* <span style="font-size:1.5rem;">?</span>
-                        <span>${card.type === 'ritual' ? '旧规' : '新解'}</span> */
 
                 let backContent = '';
+                // 逻辑保持不变，依然检查 image 属性
                 if (card.image) {
                     backContent = `
                         <div class="back" style="padding: 0; border: none; overflow: hidden;">
                             <img src="${card.image}" alt="${card.title}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 0;">
-            
                             <div class="text-overlay">
                                 <div class="card-icon">${card.icon}</div>
                                 <div class="card-title">${card.title}</div>
                                 <div class="card-desc">${card.desc}</div>
                             </div>
                         </div>
-                            `;
+                    `;
                 } else {
                     backContent = `
                         <div class="back">
@@ -496,8 +571,6 @@
                 }
 
                 cardEl.innerHTML = frontContent + backContent;
-                
-                // 使用 CSS touch-action 处理移动端点击，避免复杂的 JS 冲突
                 cardEl.addEventListener('click', handleCardClick);
                 grid.appendChild(cardEl);
             });
@@ -513,7 +586,6 @@
 
         function handleCardClick(e) {
             if (lockBoard) return;
-            
             const card = e.currentTarget;
 
             if (card.classList.contains('matched')) {
@@ -521,7 +593,6 @@
                 return;
             }
 
-            // 点击已翻开 -> 盖回去
             if (card.classList.contains('flip')) {
                 card.classList.remove('flip');
                 selectedCards = selectedCards.filter(c => c !== card);
@@ -529,13 +600,11 @@
                 return;
             }
 
-            // 点击未翻开 -> 翻开
             if (selectedCards.length < 2) {
                 card.classList.add('flip');
                 selectedCards.push(card);
                 updateConfirmButton();
             } else {
-                // 【核心修复】使用 CSS class 进行震动，防止 style 冲突导致卡牌锁死
                 card.classList.add('denying');
                 setTimeout(() => card.classList.remove('denying'), 300);
             }
@@ -544,10 +613,10 @@
         function updateConfirmButton() {
             if (selectedCards.length === 2) {
                 confirmBtn.classList.add('active');
-                confirmBtn.textContent = "确认配对";
+                confirmBtn.textContent = "Confirm Match";
             } else {
                 confirmBtn.classList.remove('active');
-                confirmBtn.textContent = selectedCards.length === 1 ? "请再翻一张" : "请翻开两张牌";
+                confirmBtn.textContent = selectedCards.length === 1 ? "Flip one more" : "Flip two cards";
             }
         }
 
@@ -558,36 +627,36 @@
             const card2 = selectedCards[1];
 
             if (card1.dataset.pairId === card2.dataset.pairId) {
-                // 配对成功
+                // --- 配对成功 ---
                 card1.classList.add('matched');
                 card2.classList.add('matched');
                 
-                // 【核心修复】计算真实得分，防止疯狂点击导致分数错误
                 const matchedCount = document.querySelectorAll('.card.matched').length;
                 score = matchedCount / 2;
                 scoreEl.textContent = score;
 
                 showModal(card1.dataset.modalTitle, card1.dataset.modalText, card1.dataset.modalImage);
-                
                 resetSelection();
                 if(score === 6) {
-                    setTimeout(() => alert("🎉 恭喜！所有旧俗已完成重构！"), 800);
+                    setTimeout(() => alert("🎉 Congratulations! All rituals have been remixed!"), 800);
                 }
             } else {
-                // 配对失败
+                // --- 配对失败 ---
                 lockBoard = true;
                 lives--;
                 updateLivesDisplay();
-                document.body.classList.add('shake-screen');
-                setTimeout(() => document.body.classList.remove('shake-screen'), 500);
+                
+                // 【关键修改点】只震动卡牌区域，不震动 body 或 container
+                const gridArea = document.getElementById('gameGrid');
+                gridArea.classList.add('shake-screen');
+                setTimeout(() => gridArea.classList.remove('shake-screen'), 500);
 
                 confirmBtn.classList.remove('active');
                 confirmBtn.style.backgroundColor = "#d32f2f";
-                confirmBtn.textContent = "配对错误！生命-1";
+                confirmBtn.textContent = "Wrong Match! Lives -1";
 
                 setTimeout(() => {
                     confirmBtn.style.backgroundColor = ""; 
-                    
                     if (lives <= 0) {
                         triggerExplosion();
                     } else {
@@ -607,7 +676,8 @@
 
         function triggerExplosion() {
             explosionOverlay.classList.add('active');
-            grid.style.opacity = '0';
+            // 注意：这里需要隐藏的是 #game-container，因为 grid 只是其中一部分
+            document.getElementById('game-container').style.opacity = '0';
             confirmBtn.style.display = 'none';
         }
 
@@ -633,8 +703,33 @@
         function closeModal() {
             modalOverlay.classList.remove('active');
         }
+        
+        const rulesOverlay = document.getElementById('rulesOverlay');
+        function openRules() { rulesOverlay.classList.add('active'); }
+        function closeRules() { rulesOverlay.classList.remove('active'); }
 
-        initGame();
+        function backToMenu() {
+            // 1. 隐藏游戏界面，显示封面
+            document.getElementById('game-container').style.display = 'none';
+            document.getElementById('landing-page').style.display = 'flex';
+    
+            // 2. 重置游戏状态 (防止切回来时状态错乱)
+            score = 0;
+            lives = maxLives;
+            selectedCards = [];
+            lockBoard = false;
+    
+            // 3. 重置按钮状态
+            const confirmBtn = document.getElementById('confirm-btn');
+            confirmBtn.classList.remove('active');
+            confirmBtn.textContent = "Please flip 2 cards";
+            confirmBtn.style.backgroundColor = ""; 
+    
+            // 4. 清空网格 (下次开始时会重新生成)
+            document.getElementById('game-grid').innerHTML = '';
+        }
+
+        // 注意：这里不再自动调用 initGame()，而是等待 startGame() 被点击
     </script>
 </body>
 </html>
