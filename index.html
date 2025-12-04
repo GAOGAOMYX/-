@@ -51,6 +51,30 @@
             animation: cardDeny 0.3s ease-in-out;
         }
 
+        /* --- 新增：配对成功提示样式 --- */
+        #success-toast {
+            position: fixed;
+            top: 45%; /* 显示在屏幕正中间稍微偏上 */
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            background-color: rgba(46, 125, 50, 0.95); /* 深绿色背景 */
+            color: white;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.5rem;
+            font-weight: 900;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 4000; /* 确保在卡牌之上 */
+            pointer-events: none; /* 防止遮挡点击 */
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #success-toast.active {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1); /* 弹出的放大效果 */
+        }
+
         /* --- 3. Landing Page Styles (NEW) --- */
         #landing-page {
             position: fixed;
@@ -336,6 +360,22 @@
             background: var(--blue-color);
             color: white;
         }
+
+        /* --- 新增：彩带粒子动画 --- */
+        .confetti {
+            position: fixed;
+            top: -20px; /* 从屏幕上方开始 */
+            width: 10px;
+            height: 10px;
+            z-index: 5000; /* 保证在最顶层 */
+            pointer-events: none; /* 不挡鼠标点击 */
+            opacity: 0.8;
+        }
+
+        @keyframes confettiFall {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; } /* 下落到底部并旋转 */
+        }
     </style>
 </head>
 <body>
@@ -344,13 +384,15 @@
         <div id="landing-title">Ritual Rewrite</div>
         
         <div class="difficulty-container">
-            <button class="diff-btn" onclick="selectDifficulty('simple')">Simple</button>
-            <button class="diff-btn" onclick="selectDifficulty('normal')">Normal</button>
+            <button class="diff-btn" onclick="selectDifficulty('simple')">Easy</button>
+            <button class="diff-btn" onclick="selectDifficulty('normal')">Hard</button>
         </div>
 
         <button id="landing-start-btn" onclick="startGame()">Start Game</button>
         
     </div>
+
+    <div id="success-toast">Perfect Match! 🎉</div>
 
     <div id="game-container">
         <h1>Ritual Rewrite</h1>
@@ -436,7 +478,7 @@
               modalTitle: 'Living Decoration → Respected Professional', image: 'card1-blue1.jpg', modalImage: 'Pair 5.jpg', modalText: '<span class="label-bias">Bias: </span>In the early days, female servers were not seen as professionals to be noticed. They were expected to stay quiet and not disturb customers. Their uniforms often matched the walls, making them blend in and hard to see.<br><br><span class="label-fix">Fix: </span>Today, servers are respected professionals and don’t need to stay hidden. Their uniforms have different colors to show their roles, making them easier for customers to see and appreciate.' },
             
             // Pair 6 (Updated: Forbidden Glass)
-            { id: '6a', pairId: 6, type: 'ritual', icon: '', title: 'Forbidden Glass', desc: 'Men Chers freely in the room, while women stay cautious.',
+            { id: '6a', pairId: 6, type: 'ritual', icon: '', title: 'Forbidden Glass', desc: 'Men Cheers freely, while women stay cautious.',
               modalTitle: 'Exclusive Pubs → Inclusive Safe Space', image: 'card1-red1.jpg', modalImage: 'Pair 6.jpg', modalText: '<span class="label-bias">Bias: </span>Historically, drinking in public was considered a “male activity.”Bars and pubs were loud and unsafe for women. This made public social life unequal, as women could not participate freely or stay for long.<br><br><span class="label-fix">Fix: </span>Willow Tea Rooms created a different type of public space: bright, calm, and entirely alcohol-free, open to everyone regardless of gender. Both women and men could sit, talk, and spend time without the alcohol culture.' },
             { id: '6b', pairId: 6, type: 'rewrite', icon: '', title: 'Alcohol-Free Space', desc: 'Tea and polite talks create a social space without alcohol.',
               modalTitle: 'Exclusive Pubs → Inclusive Safe Space', image: 'card1-blue1.jpg', modalImage: 'Pair 6.jpg', modalText: '<span class="label-bias">Bias: </span>Historically, drinking in public was considered a “male activity.”Bars and pubs were loud and unsafe for women. This made public social life unequal, as women could not participate freely or stay for long.<br><br><span class="label-fix">Fix: </span>Willow Tea Rooms created a different type of public space: bright, calm, and entirely alcohol-free, open to everyone regardless of gender. Both women and men could sit, talk, and spend time without the alcohol culture.' }
@@ -477,7 +519,7 @@
               modalTitle: 'Living Decoration → Respected Professional', image: 'card1-blue1.jpg', modalImage: 'Pair 5.jpg', modalText: '<span class="label-bias">Bias: </span>In the early days, female servers were not seen as professionals to be noticed. They were expected to stay quiet and not disturb customers. Their uniforms often matched the walls, making them blend in and hard to see.<br><br><span class="label-fix">Fix: </span>Today, servers are respected professionals and don’t need to stay hidden. Their uniforms have different colors to show their roles, making them easier for customers to see and appreciate.' },
             
             // Pair 6 (Updated: Forbidden Glass)
-            { id: '6a', pairId: 6, type: 'ritual', icon: '', title: 'Forbidden Glass', desc: 'Men Chers freely in the room, while women stay cautious.',
+            { id: '6a', pairId: 6, type: 'ritual', icon: '', title: 'Forbidden Glass', desc: 'Men Chers freely, while women stay cautious.',
               modalTitle: 'Exclusive Pubs → Inclusive Safe Space', image: 'card1-red1.jpg', modalImage: 'Pair 6.jpg', modalText: '<span class="label-bias">Bias: </span>Historically, drinking in public was considered a “male activity.”Bars and pubs were loud and unsafe for women. This made public social life unequal, as women could not participate freely or stay for long.<br><br><span class="label-fix">Fix: </span>Willow Tea Rooms created a different type of public space: bright, calm, and entirely alcohol-free, open to everyone regardless of gender. Both women and men could sit, talk, and spend time without the alcohol culture.' },
             { id: '6b', pairId: 6, type: 'rewrite', icon: '', title: 'Alcohol-Free Space', desc: 'Sitting down to chat without alcohol, quiet and dignified.',
               modalTitle: 'Exclusive Pubs → Inclusive Safe Space', image: 'card1-blue1.jpg', modalImage: 'Pair 6.jpg', modalText: '<span class="label-bias">Bias: </span>Historically, drinking in public was considered a “male activity.”Bars and pubs were loud and unsafe for women. This made public social life unequal, as women could not participate freely or stay for long.<br><br><span class="label-fix">Fix: </span>Willow Tea Rooms created a different type of public space: bright, calm, and entirely alcohol-free, open to everyone regardless of gender. Both women and men could sit, talk, and spend time without the alcohol culture.' }
@@ -639,19 +681,41 @@
             const card1 = selectedCards[0];
             const card2 = selectedCards[1];
 
+            // --- 检查配对 ---
             if (card1.dataset.pairId === card2.dataset.pairId) {
+                // === 🟢 配对成功 (修改这部分) ===
+                
+                // 1. 改变卡片样式
                 card1.classList.add('matched');
                 card2.classList.add('matched');
                 
+                // 2. 更新分数 (实时计算)
                 const matchedCount = document.querySelectorAll('.card.matched').length;
                 score = matchedCount / 2;
                 scoreEl.textContent = score;
 
-                showModal(card1.dataset.modalTitle, card1.dataset.modalText, card1.dataset.modalImage);
-                resetSelection();
-                if(score === 6) {
-                    setTimeout(() => alert("🎉 Congratulations! All rituals have been remixed!"), 800);
-                }
+                // 3. 【新增】显示成功提示并锁定屏幕
+                const successToast = document.getElementById('success-toast');
+                successToast.classList.add('active'); // 显示 "Perfect Match!"
+                createConfetti();
+                lockBoard = true; // 暂时锁定，防止在庆祝时乱点
+
+                // 4. 【新增】延迟 1秒 后再弹出解释框
+                setTimeout(() => {
+                    successToast.classList.remove('active'); // 隐藏提示
+                    
+                    // 显示知识点弹窗
+                    showModal(card1.dataset.modalTitle, card1.dataset.modalText, card1.dataset.modalImage);
+                    
+                    resetSelection();
+                    lockBoard = false; // 解锁
+
+                    // 检查是否通关
+                    if(score === 6) {
+                        setTimeout(() => alert("🎉 Congratulations! All rituals have been remixed!"), 800);
+                    }
+                }, 1000); // 延迟 1000 毫秒 (1秒)
+
             } else {
                 lockBoard = true;
                 lives--;
@@ -738,6 +802,37 @@
     
             // 4. 清空网格 (下次开始时会重新生成)
             document.getElementById('game-grid').innerHTML = '';
+        }
+
+        // --- 新增：生成彩带的函数 ---
+        function createConfetti() {
+            const colors = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6']; // 红蓝黄绿紫
+            const confettiCount = 60; // 彩带数量
+
+            for (let i = 0; i < confettiCount; i++) {
+                const confetti = document.createElement('div');
+                confetti.classList.add('confetti');
+        
+                // 随机位置、颜色和大小
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.width = Math.random() * 8 + 6 + 'px'; // 大小 6-14px
+                confetti.style.height = Math.random() * 5 + 5 + 'px';
+        
+                // 随机动画时长（模拟不同下落速度）
+                const duration = Math.random() * 2 + 2; // 2到4秒
+                confetti.style.animation = `confettiFall ${duration}s linear forwards`;
+        
+                // 随机延迟，让它们错落有致
+                confetti.style.animationDelay = Math.random() * 0.5 + 's';
+
+                document.body.appendChild(confetti);
+
+                // 动画结束后清理元素，防止页面卡顿
+                setTimeout(() => {
+                    confetti.remove();
+                }, duration * 1000);
+            }
         }
 
         // 注意：这里不再自动调用 initGame()，而是等待 startGame() 被点击
